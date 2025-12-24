@@ -201,7 +201,7 @@ async function checkWalletConnection() {
                 signer = provider.getSigner();
                 userAddress = await signer.getAddress();
 
-                // Don't disconnect on wrong network, just log it
+                // Check network
                 const network = await provider.getNetwork();
                 console.log('Connected to network:', network.chainId, 'Expected:', CONFIG.CHAIN_ID);
                 
@@ -214,6 +214,20 @@ async function checkWalletConnection() {
 
                 isConnecting = false;
                 console.log('Wallet reconnected silently');
+
+                // ADD THIS: Redirect if on home page
+                const currentPath = window.location.pathname;
+                const isOnHomePage = currentPath.includes('index.html') || 
+                                     currentPath === '/' || 
+                                     currentPath.endsWith('/SALVA-V1-Frontend/') ||
+                                     currentPath === '/SALVA-V1-Frontend';
+
+                if (isOnHomePage) {
+                    const base = window.location.origin + window.location.pathname.replace(/index\.html.*$/, '');
+                    console.log('Already connected, redirecting to app.html...');
+                    window.location.href = base + 'app.html';
+                }
+
             } else {
                 localStorage.removeItem('walletConnected');
                 localStorage.removeItem('walletType');
