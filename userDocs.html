@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SALVA - Documentation</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/docs.css">
+</head>
+
+<body>
+  <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">SALVA</div>
+        <nav class="sidebar-nav">
+            <a href="index.html">🏠 Home</a>
+            <a href="app.html" id="dashboardGatekeeper">📊 Dashboard</a>
+            <a href="stats.html">📈 Protocol Stats</a>
+            <div class="nav-divider"></div>
+            <a href="userDocs.html">📖 Documentation</a>
+            <div class="nav-divider"></div>
+            <a href="support.html">📩 Support</a>
+        </nav>
+    </aside>
+
+  <div class="overlay" id="overlay"></div>
+
+  <nav class="navbar">
+    <div class="container nav-wrapper">
+      <div class="nav-left">
+        <div class="hamburger" id="hamburger">
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+        </div>
+        <div class="logo">Protocol Documentation</div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container docs-main">
+    <section id="user-section">
+      <header class="docs-hero">
+        <h1>The SALVA User Guide</h1>
+        <p>Mastering financial discipline through decentralized technology.</p>
+      </header>
+
+      <div class="docs-card">
+        <h2>💡 The SALVA Philosophy</h2>
+        <p>Traditional savings accounts make it too easy to "dip into" your savings. SALVA is a <strong>Commitment
+            Protocol</strong>. We believe true financial freedom comes from the discipline to keep your funds locked
+          until your goals are met. By locking your funds in a smart contract, you protect your future self from current
+          impulses.</p>
+
+        <div class="info-grid">
+          <div class="info-item">
+            <h4>Financial Discipline</h4>
+            <p>Locking funds ensures money intended for long-term goals stays exactly where it belongs.</p>
+          </div>
+          <div class="info-item">
+            <h4>Zero Human Error</h4>
+            <p>No bank employee can freeze your account. The code executes automatically and unbiasedly.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="docs-card">
+        <h2>🔗 Decentralization & Your Safety</h2>
+        <p>SALVA is <strong>Non-Custodial</strong>. This means you are the sole owner of your vault.</p>
+        <ul>
+          <li><strong>No Middleman:</strong> Only the Smart Contract—unbreakable code on the blockchain—holds your
+            funds. Not even the developers can touch them.</li>
+          <li><strong>Transparency:</strong> Every deposit is recorded on a public ledger. You can verify your balance
+            on-chain 24/7.</li>
+        </ul>
+        <div class="analogy-box">
+          <strong>The Vending Machine:</strong> A bank is like a shopkeeper who can say "no." SALVA is like a vending
+          machine. If you meet the conditions (the date or target), the machine <em>must</em> release the funds.
+        </div>
+      </div>
+    </section>
+
+    <hr class="section-divider">
+
+    <section id="developer-section" style="margin-top: 5rem; border-top: 1px solid #333; padding-top: 4rem;">
+      <header class="docs-hero dev-hero">
+        <h1>Developer Documentation</h1>
+        <p>Technical specifications for SalvaV1 Smart Contract.</p>
+      </header>
+
+      <div class="docs-card">
+        <h2>🛠 Protocol Deployment</h2>
+        <div class="code-block">
+          <strong>Sepolia Testnet:</strong> <code>0x9FfC17C059912f45BD920610952f504fe84a63d4</code><br>
+          <strong>Mainnet:</strong> <code>0x... (Coming Soon)</code>
+        </div>
+        <p class="dev-note">The contract is immutable and set with owner: <code>0x7086...bf94</code></p>
+      </div>
+
+      <div class="docs-card">
+        <h2>📋 Smart Contract API</h2>
+
+        <h3 class="method-title">Plan Creation</h3>
+        <ul class="dev-functions">
+          <li><code>createTimeBasedPlan(address _token, string _description, uint256 _savingsDuration)</code></li>
+          <li><code>createGoalBasedPlan(address _token, string _description, uint256 _targetAmount)</code></li>
+        </ul>
+
+        <h3 class="method-title">Funding & Deposits</h3>
+        <ul class="dev-functions">
+          <li><code>fundTimeBasedPlan(address _token, uint256 _id, uint256 _amount)</code></li>
+          <li><code>fundGoalBasedPlan(address _token, uint256 _id, uint256 _amount)</code></li>
+        </ul>
+        <p class="dev-note">Requires IERC20 <code>approve()</code> before execution.</p>
+
+        <h3 class="method-title">Withdrawals</h3>
+        <ul class="dev-functions">
+          <li><code>withdrawFromTBS(uint256 _id, uint256 _amount)</code>: Checks
+            <code>block.timestamp >= maturityTime</code>.</li>
+          <li><code>withdrawFromGBS(uint256 _id, uint256 _amount)</code>: Checks
+            <code>currentAmount >= targetAmount</code>.</li>
+        </ul>
+      </div>
+
+      <div class="docs-card warning">
+        <h2>🛡️ Core Error Handling</h2>
+        <p>Ensure your frontend handles these specific reverts:</p>
+        <ul class="error-list">
+          <li><code>SalvaV1__COMMITMENT_NOT_MATURE</code>: Attempting to withdraw early.</li>
+          <li><code>SalvaV1__NOT_ALLOWED_TOKEN</code>: Using a token not on the whitelist.</li>
+          <li><code>SalvaV1__TOKEN_MISMATCH_FOR_PLAN</code>: Token provided doesn't match the plan's setup.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/docs.js"></script>
+</body>
+
+</html>

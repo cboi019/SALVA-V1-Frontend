@@ -1,4 +1,3 @@
-
 :root {
     --primary: #8b5cf6;
     --primary-dark: #7c3aed;
@@ -348,9 +347,6 @@ a:hover {
 }
 
 /* Media Queries */
-/* FILE: css/main.css - UPDATE MEDIA QUERIES SECTION */
-
-/* Media Queries */
 @media (max-width: 768px) {
     .hero-title {
         font-size: 2rem;
@@ -399,7 +395,6 @@ a:hover {
         gap: 0.5rem;
     }
     
-    /* Dashboard adjustments */
     .dashboard-container {
         padding: 0 10px;
     }
@@ -465,7 +460,6 @@ a:hover {
         font-size: 1.25rem;
     }
     
-    /* Make tab buttons scrollable horizontally */
     .tabs-nav {
         gap: 0.5rem;
         padding: 0 10px;
@@ -477,4 +471,55 @@ a:hover {
         padding: 0.75rem 0.5rem;
         white-space: nowrap;
     }
+}
+
+/* ==========================================================================
+   SUPPORT & COPY STYLES (ADDED)
+   ========================================================================== */
+.contact-box {
+    background: var(--surface);
+    padding: 2.5rem 1.5rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    text-align: center;
+    margin-top: 2rem;
+}
+
+.copy-wrapper {
+    display: inline-flex;
+    align-items: center;
+    background: var(--background);
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+    border: 1px solid var(--border);
+    max-width: 100%;
+}
+
+#emailText {
+    color: var(--secondary);
+    font-weight: bold;
+    word-break: break-all;
+    font-size: clamp(0.9rem, 4vw, 1.1rem);
+}
+
+.copy-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    margin-left: 10px;
+    color: var(--text-secondary);
+}
+
+.copy-status {
+    font-size: 0.8rem;
+    color: var(--secondary);
+    height: 1rem;
+    opacity: 0;
+    transition: 0.3s;
+}
+
+.copy-status.show {
+    opacity: 1;
 }

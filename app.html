@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -9,13 +8,32 @@
 
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/components.css">
-</head>
+    </head>
 
 <body>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">SALVA</div>
+        <nav class="sidebar-nav">
+            <a href="index.html">🏠 Home</a>
+            <a href="app.html" class="active">📊 Dashboard</a>
+            <a href="stats.html">📈 Protocol Stats</a>
+            <div class="nav-divider"></div>
+            <a href="userDocs.html">📖 Documentation</a>
+            <a href="support.html">📩 Support</a>
+        </nav>
+    </aside>
+
+    <div class="overlay" id="overlay"></div>
+
     <nav class="navbar">
-        <div class="container">
-            <div class="logo">
-                <a href="index.html">SALVA</a>
+        <div class="container nav-wrapper">
+            <div class="nav-left">
+                <div class="hamburger" id="hamburger">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+                <div class="logo">Dashboard</div>
             </div>
             <div class="nav-info">
                 <span id="userAddress" class="user-address"></span>
@@ -24,7 +42,7 @@
         </div>
     </nav>
 
-    <div class="dashboard-container">
+    <main class="dashboard-container">
         <div class="balance-card">
             <h2>Total Balance Across All Plans</h2>
             <div id="totalBalance" class="balance-amount">0.00</div>
@@ -36,11 +54,10 @@
                 <button class="tab-btn active" data-tab="create">Create Commitment</button>
                 <button class="tab-btn" data-tab="view">View Commitments</button>
                 <button class="tab-btn" data-tab="tokens">Allowed Tokens</button>
-                <button class="tab-btn" data-tab="admin" style="display: none;">Manage Tokens</button>
+                <button class="tab-btn" id="adminTabBtn" style="display: none;" data-tab="admin">Manage Tokens</button>
             </div>
 
             <div class="tabs-content">
-
                 <div id="createTab" class="tab-content active">
                     <h3>Create a New Savings Plan</h3>
 
@@ -56,8 +73,7 @@
                     <form id="timeBasedForm" class="create-form">
                         <div class="form-group">
                             <label>Select Token</label>
-                            <select id="tbTokenSelect" class="token-dropdown"
-                                onchange="document.getElementById('tbTokenAddress').value = this.value; this.style.borderColor = 'var(--success)'; setTimeout(() => this.style.borderColor = '', 1000);">
+                            <select id="tbTokenSelect" class="token-dropdown">
                                 <option value="">Loading tokens...</option>
                             </select>
                         </div>
@@ -69,13 +85,12 @@
 
                         <div class="form-group">
                             <label>Description</label>
-                            <input type="text" id="tbDescription" placeholder="e.g., Emergency Fund, Vacation Savings"
-                                required>
+                            <input type="text" id="tbDescription" placeholder="e.g., Emergency Fund" required>
                         </div>
 
                         <div class="form-group">
                             <label>Lock Duration (Days)</label>
-                            <input type="number" id="tbDuration" placeholder="e.g., 30, 90, 365" required>
+                            <input type="number" id="tbDuration" placeholder="e.g., 30" required>
                         </div>
 
                         <button type="submit" class="btn btn-primary btn-full">Create Time-Based Plan</button>
@@ -84,8 +99,7 @@
                     <form id="goalBasedForm" class="create-form" style="display: none;">
                         <div class="form-group">
                             <label>Select Token</label>
-                            <select id="gbTokenSelect" class="token-dropdown"
-                                onchange="document.getElementById('gbTokenAddress').value = this.value; this.style.borderColor = 'var(--success)'; setTimeout(() => this.style.borderColor = '', 1000);">
+                            <select id="gbTokenSelect" class="token-dropdown">
                                 <option value="">Loading tokens...</option>
                             </select>
                         </div>
@@ -97,18 +111,18 @@
 
                         <div class="form-group">
                             <label>Description</label>
-                            <input type="text" id="gbDescription" placeholder="e.g., House Down Payment, New Car"
-                                required>
+                            <input type="text" id="gbDescription" placeholder="e.g., New Car" required>
                         </div>
 
                         <div class="form-group">
-                            <label>Target Amount (in token units)</label>
+                            <label>Target Amount</label>
                             <input type="number" id="gbTargetAmount" placeholder="e.g., 1000" step="0.000001" required>
                         </div>
 
                         <button type="submit" class="btn btn-primary btn-full">Create Goal-Based Plan</button>
                     </form>
                 </div>
+
                 <div id="viewTab" class="tab-content">
                     <h3>Your Active Commitments</h3>
                     <div id="plansContainer" class="plans-grid">
@@ -116,29 +130,24 @@
                     </div>
                 </div>
 
-
                 <div id="tokensTab" class="tab-content">
-                    <h3>Tokens Whitelisted by Contract Owner</h3>
+                    <h3>Whitelisted Tokens</h3>
                     <div id="tokensContainer" class="tokens-list">
                         <p>Loading allowed tokens...</p>
                     </div>
                 </div>
 
-
                 <div id="adminTab" class="tab-content">
                     <h3>Manage Whitelisted Tokens (Owner Only)</h3>
-
                     <form id="tokenManageForm" class="manage-form">
                         <div class="form-group">
                             <label>Token Address</label>
                             <input type="text" id="adminTokenAddress" placeholder="0x..." required>
                         </div>
-
                         <div class="form-group">
-                            <label>Token Name (e.g., USDC)</label>
+                            <label>Token Name</label>
                             <input type="text" id="adminTokenName" placeholder="e.g., USDC" required>
                         </div>
-
                         <div class="form-group">
                             <label>Action</label>
                             <select id="adminTokenAction" required>
@@ -146,15 +155,12 @@
                                 <option value="false">Remove Token</option>
                             </select>
                         </div>
-
-                        <button type="submit" class="btn btn-secondary btn-full">Submit Token Action</button>
+                        <button type="submit" class="btn btn-secondary btn-full">Submit Action</button>
                     </form>
                 </div>
-
-
             </div>
         </div>
-    </div>
+    </main>
 
     <div id="loadingModal" class="modal">
         <div class="modal-content">
@@ -174,6 +180,6 @@
     <script src="js/ui/render.js"></script>
     <script src="js/ui/events.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/docs.js"></script> 
 </body>
-
 </html>

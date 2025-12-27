@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SALVA - Support Center</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/docs.css">
+</head>
+
+<body>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">SALVA</div>
+    <nav class="sidebar-nav">
+      <a href="index.html">🏠 Home</a>
+      <a href="app.html">📊 Dashboard</a>
+      <a href="stats.html">📈 Protocol Stats</a>
+      <div class="nav-divider"></div>
+      <a href="userDocs.html">📖 Documentation</a>
+      <a href="support.html" class="active">📩 Support</a>
+    </nav>
+  </aside>
+
+  <div class="overlay" id="overlay"></div>
+
+  <nav class="navbar">
+    <div class="container nav-wrapper">
+      <div class="nav-left">
+        <div class="hamburger" id="hamburger">
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+        </div>
+        <div class="logo">Support Center</div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container docs-main">
+    <header class="docs-hero">
+      <h1>Help & Support</h1>
+      <p>Answers to common questions and technical assistance.</p>
+    </header>
+
+    <section class="docs-card">
+      <h2>🛠️ Technical Troubleshooting</h2>
+
+      <div class="faq-item">
+        <strong>Why is my transaction failing?</strong>
+        <p>Ensure you have enough ETH for gas fees. If you are depositing tokens (like USDT), you must first
+          <strong>Approve</strong> the contract to use your tokens before the final deposit transaction.</p>
+      </div>
+
+      <div class="faq-item">
+        <strong>I can't see my savings plan!</strong>
+        <p>Make sure your wallet is connected to the <strong>Sepolia Testnet</strong>. If you are on Mainnet or another
+          network, the dashboard will not be able to pull your data from the contract.</p>
+      </div>
+    </section>
+
+    <section class="docs-card warning">
+      <h2>🛡️ Security Notice</h2>
+      <p>SALVA is a non-custodial protocol. We <strong>cannot</strong>:</p>
+      <ul style="margin: 1rem 0 1rem 1.5rem; color: #ffcccc;">
+        <li>Reset or recover your wallet seed phrase.</li>
+        <li>Revert or cancel a transaction once it's on-chain.</li>
+        <li>Unlock your funds before the goal or date is reached.</li>
+      </ul>
+      <p><em>Always double-check your goal parameters before confirming.</em></p>
+    </section>
+
+    <section class="docs-card">
+      <h2>📩 Contact Us</h2>
+      <p>Found a bug or have a suggestion? Reach out to our developer team.</p>
+
+      <div class="contact-box">
+        <p><strong>Official Support Email:</strong></p>
+        <div class="copy-wrapper">
+          <span id="emailText">charlieonyii42@gmail.com</span>
+          <button class="copy-btn" onclick="copySupportEmail()" title="Copy Email">
+            <span id="copyIcon">📋</span>
+          </button>
+        </div>
+        <div id="copyStatus" class="copy-status">Copied to clipboard!</div>
+        <p style="margin-top: 15px; font-size: 0.85rem; color: #888;">We typically respond within 24-48 hours.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/docs.js"></script>
+</body>
+
+</html>

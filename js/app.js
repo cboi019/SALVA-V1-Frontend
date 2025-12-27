@@ -1,148 +1,145 @@
+// FILE: js/app.js - FIXED VERSION
 
-// FILE: js/app.js 
-
-// Main app initialization
+/**
+ * Initialize the application
+ * This only runs on app.html (dashboard page)
+ */
 document.addEventListener('DOMContentLoaded', async () => {
-    // Initialize wallet
-    initWalletButtons();
+    const currentPath = window.location.pathname;
+    const isOnDashboard = currentPath.includes('app.html');
     
-    // Check if we're on the app page
-    if (window.location.pathname.includes('app.html')) {
-        // Wait for wallet connection
-        await checkWalletConnection();
-        
-        // If not connected, redirect to home
-        if (!userAddress) {
-            window.location.href = 'index.html';
-            return;
-        }
-        
-        // Check if contract is initialized
-        if (!salvaContract) {
-            console.error('❌ Contract not initialized after wallet connection!');
-            showNotification('Failed to initialize contract. Please refresh.', 'error');
-            return;
-        }
-        
-        console.log('✅ Contract initialized:', salvaContract.address);
-        console.log('✅ User connected:', userAddress);
-        
-        // Initialize event handlers
-        initEventHandlers();
-        
-        // Load tokens first (needed for dropdowns)
-        try {
-            await loadWhitelistedTokens();
-        } catch (error) {
-            console.error('Error loading tokens:', error);
-        }
-        
-        // Then load plans
-        try {
-            await loadUserPlansFromEvents();
-        } catch (error) {
-            console.error('Error loading plans:', error);
-        }
-        
-        // Finally update balance (only after plans are loaded)
-        try {
-            // Small delay to ensure plans are rendered
-            setTimeout(async () => {
-                await updateTotalBalance();
-            }, 500);
-        } catch (error) {
-            console.error('Error updating balance:', error);
-        }
+    // Only run dashboard initialization on app.html
+    if (!isOnDashboard) {
+        console.log('📄 Not on dashboard, skipping app.js initialization');
+        return;
     }
+    
+    console.log('🚀 Dashboard initializing...');
+    
+    // 1. Setup MetaMask listeners
+    if (typeof setupMetaMaskListeners === 'function') {
+        setupMetaMaskListeners();
+    }
+    
+    // 2. Initialize wallet buttons
+    if (typeof initWalletButtons === 'function') {
+        initWalletButtons();
+    }
+    
+    // 3. Initialize UI event handlers (tabs, forms, etc.)
+    if (typeof initEventHandlers === 'function') {
+        initEventHandlers();
+    }
+    
+    // 4. Initialize dashboard
+    await initializeDashboard();
 });
 
-// Load all user plans from blockchain events
-async function loadUserPlansFromEvents() {
+/**
+ * Initialize dashboard (app.html only)
+ */
+async function initializeDashboard() {
+    console.log('📊 Initializing Dashboard...');
+    
     try {
-        showLoading('Loading your commitments...');
+        // Check if wallet was previously connected
+        const wasConnected = localStorage.getItem('walletConnected') === 'true';
         
-        // Get all planCreated events for this user
-        const filter = salvaContract.filters.planCreated(userAddress);
-        const events = await salvaContract.queryFilter(filter);
+        // Try to connect
+        const connected = await checkWalletConnection();
         
-        console.log('Found events:', events.length);
-        
-        if (events.length === 0) {
-            hideLoading();
-            const container = document.getElementById('plansContainer');
-            if (container) {
-                container.innerHTML = '<p class="empty-state">No active plans. Create your first commitment!</p>';
-            }
-            return;
-        }
-        
-        // Clear old localStorage data
-        const plans = JSON.parse(localStorage.getItem('salvaPlans') || '{}');
-        plans[userAddress] = [];
-        
-        // Process each event
-        for (const event of events) {
-            const planId = event.args._planID.toString();
-            console.log('Processing plan ID:', planId);
-            
-            // Try to fetch as time-based first
-            try {
-                const timePlan = await salvaContract.viewTimeBasedPlan(userAddress, planId);
+        if (!connected) {
+            // If they had a session but it's gone, try to reconnect
+            if (wasConnected) {
+                console.log('🔄 Attempting reconnection...');
+                const reconnected = await connectMetaMask();
                 
-                if (timePlan.user !== ethers.constants.AddressZero) {
-                    plans[userAddress].push({ 
-                        id: planId, 
-                        type: 'time', 
-                        token: timePlan.token 
-                    });
-                    
-                    await fetchAndDisplayPlan(planId, 'time');
-                    continue;
+                if (!reconnected) {
+                    console.warn('❌ Reconnection failed. Redirecting...');
+                    showNotification('Please connect your wallet', 'error');
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1500);
+                    return;
                 }
-            } catch (error) {
-                console.log('Not a time-based plan:', planId);
-            }
-            
-            // Try as goal-based
-            try {
-                const goalPlan = await salvaContract.viewGoalBasedPlan(userAddress, planId);
-                
-                if (goalPlan.user !== ethers.constants.AddressZero) {
-                    plans[userAddress].push({ 
-                        id: planId, 
-                        type: 'goal', 
-                        token: goalPlan.token 
-                    });
-                    
-                    await fetchAndDisplayPlan(planId, 'goal');
-                }
-            } catch (error) {
-                console.log('Not a goal-based plan:', planId);
+            } else {
+                // No previous connection - go back to home
+                console.warn('❌ No wallet connected. Redirecting...');
+                showNotification('Please connect your wallet', 'error');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+                return;
             }
         }
         
-        // Save to localStorage
-        localStorage.setItem('salvaPlans', JSON.stringify(plans));
+        // At this point, we're connected
+        console.log('✅ Wallet connected:', userAddress);
+        console.log('✅ Contract address:', CONFIG.SALVA_ADDRESS);
         
-        hideLoading();
-
-        // If no plans were successfully processed, show empty state
-        if (plans[userAddress].length === 0) {
-            const container = document.getElementById('plansContainer');
-            if (container) {
-                container.innerHTML = '<p class="empty-state">No active plans. Create your first commitment!</p>';
-            }
-        }
-        
-        console.log('✅ Plans loaded successfully');
+        // Load dashboard data
+        await loadDashboardData();
         
     } catch (error) {
-        console.error('Error loading plans from events:', error);
-        hideLoading();
-        
-        const container = document.getElementById('plansContainer');
-        if (container) {
-            container.innerHTML = '<p class="empty-state">Error loading plans. Please refresh.</p>';
-        }
+        console.error('❌ Dashboard initialization error:', error);
+        showNotification('Failed to load dashboard', 'error');
     }
 }
+
+/**
+ * Load all dashboard data
+ */
+async function loadDashboardData() {
+    console.log('📥 Loading dashboard data...');
+    
+    try {
+        // Load whitelisted tokens first
+        if (typeof loadWhitelistedTokens === 'function') {
+            console.log('Loading tokens...');
+            await loadWhitelistedTokens();
+        }
+        
+        // Load user's plans
+        if (typeof loadUserPlansFromEvents === 'function') {
+            console.log('Loading plans...');
+            await loadUserPlansFromEvents();
+        }
+        
+        // Update total balance after a short delay to ensure cards are rendered
+        setTimeout(async () => {
+            if (typeof updateTotalBalance === 'function') {
+                console.log('Updating balance...');
+                await updateTotalBalance();
+            }
+        }, 1000);
+        
+        console.log('✅ Dashboard data loaded successfully');
+        
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        showNotification('Some data failed to load', 'warning');
+    }
+}
+
+/**
+ * Refresh dashboard data (can be called manually)
+ */
+async function refreshDashboard() {
+    console.log('🔄 Refreshing dashboard...');
+    showLoading('Refreshing data...');
+    
+    try {
+        await loadDashboardData();
+        showNotification('Dashboard refreshed', 'success');
+    } catch (error) {
+        console.error('Refresh error:', error);
+        showNotification('Refresh failed', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Export to window
+window.initializeDashboard = initializeDashboard;
+window.loadDashboardData = loadDashboardData;
+window.refreshDashboard = refreshDashboard;

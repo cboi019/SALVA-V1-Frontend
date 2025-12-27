@@ -1,420 +1,479 @@
-// wallet.js - MetaMask ONLY version
+// FILE: js/wallet.js - FIXED VERSION
+
 let isConnecting = false;
 
-// Check if on mobile device
-function isMobileDevice() {
-    return /android|iphone|ipad|ipod/i.test(navigator.userAgent);
-}
-
-// Check if in MetaMask mobile browser
-function isMetaMaskBrowser() {
-    const ua = navigator.userAgent.toLowerCase();
-    return ua.includes('metamask') || 
-           (isMobileDevice() && window.ethereum?.isMetaMask);
-}
-
-// Connect to MetaMask
-async function connectMetaMask() {
-    if (isConnecting) {
-        console.log('Connection already in progress...');
-        return;
-    }
+/**
+ * Show wallet selection modal
+ */
+function showWalletModal() {
+    // Check if modal already exists
+    let modal = document.getElementById('walletSelectionModal');
     
-    // Check if MetaMask is available
-    if (!window.ethereum) {
-        alert('MetaMask is not installed! Please install MetaMask to continue.');
-        window.open('https://metamask.io/download/', '_blank');
-        return;
-    }
-    
-    try {
-        isConnecting = true;
-        showLoading('Connecting to MetaMask...');
-
-        // Request account access
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        
-        if (accounts.length === 0) {
-            hideLoading();
-            isConnecting = false;
-            return;
-        }
-
-        // Create provider and signer
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        userAddress = await signer.getAddress();
-
-        console.log('Connected address:', userAddress);
-
-        // Check network
-        const network = await provider.getNetwork();
-        console.log('Current network:', network.chainId, 'Expected:', CONFIG.CHAIN_ID);
-        
-        if (network.chainId !== CONFIG.CHAIN_ID) {
-            try {
-                console.log('Requesting network switch to Sepolia...');
-                await window.ethereum.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: ethers.utils.hexValue(CONFIG.CHAIN_ID) }],
-                });
-                
-                console.log('Network switch requested, waiting...');
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                
-                // Recreate provider after network switch
-                provider = new ethers.providers.Web3Provider(window.ethereum);
-                signer = provider.getSigner();
-                
-                console.log('Network switched successfully');
-                
-            } catch (error) {
-                console.error('Network switch error:', error);
-                hideLoading();
-                isConnecting = false;
-                
-                if (error.code === 4902) {
-                    alert('Sepolia Testnet is not configured in your MetaMask. Please add it manually.');
-                } else {
-                    alert('Please switch to Sepolia Testnet in your MetaMask wallet.');
-                }
-                return;
-            }
-        }
-
-        // Initialize contract
-        salvaContract = new ethers.Contract(CONFIG.SALVA_ADDRESS, CONFIG.SALVA_ABI, signer);
-        console.log('Contract initialized:', salvaContract.address);
-
-        // Store connection
-        localStorage.setItem('walletConnected', 'true');
-        localStorage.setItem('walletType', 'metamask');
-
-        // Update UI
-        updateWalletUI();
-
-        hideLoading();
-        
-        // Small delay before setting isConnecting to false
-        await new Promise(resolve => setTimeout(resolve, 100));
-        isConnecting = false;
-
-        // Redirect if on home page
-        const currentPath = window.location.pathname;
-        const isOnHomePage = currentPath.includes('index.html') || 
-                             currentPath === '/' || 
-                             currentPath.endsWith('/SALVA-V1-Frontend/') ||
-                             currentPath === '/SALVA-V1-Frontend';
-
-        if (isOnHomePage) {
-            const base = window.location.origin + window.location.pathname.replace(/index\.html.*$/, '');
-            console.log('Redirecting to app.html...');
-            window.location.href = base + 'app.html';
-            return;
-        }
-
-        showNotification('Connected to MetaMask!', 'success');
-        
-        // Trigger app initialization if we're already on app.html
-        if (typeof loadUserPlansFromEvents === 'function') {
-            console.log('Triggering app data load...');
-            await loadUserPlansFromEvents();
-        }
-        if (typeof loadWhitelistedTokens === 'function') {
-            await loadWhitelistedTokens();
-        }
-
-    } catch (error) {
-        hideLoading();
-        isConnecting = false;
-        console.error('Connection error:', error);
-        
-        if (error.code === 4001 || (error.message && error.message.includes('User rejected'))) {
-            showNotification('Connection cancelled', 'error');
-        } else if (error.code === -32002) {
-            showNotification('Connection request already pending. Please check MetaMask.', 'error');
-        } else {
-            showNotification('Failed to connect to MetaMask', 'error');
-        }
-    }
-}
-
-// Disconnect wallet
-function disconnectWallet() {
-    provider = null;
-    signer = null;
-    userAddress = null;
-    salvaContract = null;
-    isConnecting = false;
-
-    localStorage.removeItem('walletConnected');
-    localStorage.removeItem('walletType');
-
-    window.location.href = 'index.html';
-}
-
-// Update wallet UI
-function updateWalletUI() {
-    const connectBtn = document.getElementById('connectWalletBtn');
-    const disconnectBtn = document.getElementById('disconnectWalletBtn');
-    const userAddressEl = document.getElementById('userAddress');
-
-    if (userAddress) {
-        if (connectBtn) connectBtn.style.display = 'none';
-        if (disconnectBtn) disconnectBtn.style.display = 'block';
-
-        if (userAddressEl) {
-            const shortAddress = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
-            userAddressEl.textContent = shortAddress;
-        }
-
-        // Show admin tab if owner
-        if (CONFIG.OWNER_ADDRESS && userAddress.toLowerCase() === CONFIG.OWNER_ADDRESS.toLowerCase()) {
-            const adminTabBtn = document.querySelector('.tab-btn[data-tab="admin"]');
-            if (adminTabBtn) adminTabBtn.style.display = 'block';
-        }
-    } else {
-        if (connectBtn) connectBtn.style.display = 'block';
-        if (disconnectBtn) disconnectBtn.style.display = 'none';
-    }
-}
-
-// Check wallet connection on page load
-async function checkWalletConnection() {
-    if (isConnecting) return;
-
-    const isConnected = localStorage.getItem('walletConnected');
-    if (!isConnected) return;
-
-    try {
-        // Check injected wallet
-        if (window.ethereum) {
-            // Give MetaMask time to fully inject (important on mobile)
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-
-            if (accounts.length > 0) {
-                isConnecting = true;
-
-                provider = new ethers.providers.Web3Provider(window.ethereum);
-                signer = provider.getSigner();
-                userAddress = await signer.getAddress();
-
-                // Check network
-                const network = await provider.getNetwork();
-                console.log('Connected to network:', network.chainId, 'Expected:', CONFIG.CHAIN_ID);
-                
-                if (network.chainId !== CONFIG.CHAIN_ID) {
-                    console.warn('Wrong network. User will be prompted to switch.');
-                }
-
-                salvaContract = new ethers.Contract(CONFIG.SALVA_ADDRESS, CONFIG.SALVA_ABI, signer);
-                updateWalletUI();
-
-                isConnecting = false;
-                console.log('Wallet reconnected silently');
-
-                // ADD THIS: Redirect if on home page
-                const currentPath = window.location.pathname;
-                const isOnHomePage = currentPath.includes('index.html') || 
-                                     currentPath === '/' || 
-                                     currentPath.endsWith('/SALVA-V1-Frontend/') ||
-                                     currentPath === '/SALVA-V1-Frontend';
-
-                if (isOnHomePage) {
-                    const base = window.location.origin + window.location.pathname.replace(/index\.html.*$/, '');
-                    console.log('Already connected, redirecting to app.html...');
-                    window.location.href = base + 'app.html';
-                }
-
-            } else {
-                localStorage.removeItem('walletConnected');
-                localStorage.removeItem('walletType');
-            }
-        }
-    } catch (error) {
-        console.error('Error checking wallet:', error);
-        isConnecting = false;
-    }
-}
-
-// Show connection modal or auto-connect
-async function showConnectionUI() {
-    console.log('=== CONNECTION DEBUG ===');
-    console.log('isMobileDevice:', isMobileDevice());
-    console.log('isMetaMaskBrowser:', isMetaMaskBrowser());
-    console.log('window.ethereum:', !!window.ethereum);
-    
-    // If in MetaMask browser, auto-connect
-    if (isMetaMaskBrowser()) {
-        console.log('MetaMask browser detected - auto-connecting');
-        await connectMetaMask();
-        return;
-    }
-    
-    // If on mobile with MetaMask, auto-connect
-    if (isMobileDevice() && window.ethereum?.isMetaMask) {
-        console.log('Mobile MetaMask detected - auto-connecting');
-        await connectMetaMask();
-        return;
-    }
-    
-    // Desktop: Show modal
-    const modal = document.createElement('div');
-    modal.className = 'wallet-modal';
-    
-    let content = '';
-    
-    if (window.ethereum) {
-        // MetaMask detected
-        content = `
-            <button class="wallet-option" id="connectMetaMask">
-                <span>🦊</span>
-                <div>
-                    <strong>MetaMask</strong>
-                    <small>Connect using MetaMask</small>
-                </div>
-            </button>
-        `;
-    } else {
-        // No MetaMask - show install prompt
-        content = `
-            <div style="text-align: center; padding: 1rem; color: var(--text-secondary);">
-                <p style="margin-bottom: 1rem;">MetaMask is required to use SALVA</p>
-                <button class="wallet-option" onclick="window.open('https://metamask.io/download/', '_blank')">
-                    <span>📥</span>
+    if (!modal) {
+        // Create modal
+        modal = document.createElement('div');
+        modal.id = 'walletSelectionModal';
+        modal.className = 'wallet-modal';
+        modal.innerHTML = `
+            <div class="wallet-modal-content">
+                <button class="wallet-close" onclick="closeWalletModal()">×</button>
+                <h3>Connect Your Wallet</h3>
+                <button class="wallet-option" onclick="connectMetaMask()">
+                    <span>🦊</span>
                     <div>
-                        <strong>Install MetaMask</strong>
-                        <small>Get started with Web3</small>
+                        <strong>MetaMask</strong>
+                        <small>Connect using MetaMask wallet</small>
+                    </div>
+                </button>
+                <button class="wallet-option" style="opacity: 0.5; cursor: not-allowed;" disabled>
+                    <span>👛</span>
+                    <div>
+                        <strong>WalletConnect</strong>
+                        <small>Coming soon...</small>
                     </div>
                 </button>
             </div>
         `;
+        document.body.appendChild(modal);
     }
     
-    modal.innerHTML = `
-        <div class="wallet-modal-content">
-            <h3>Connect Wallet</h3>
-            ${content}
-            <button class="wallet-close" id="closeModal">✕</button>
-        </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Event listeners
-    const connectBtn = document.getElementById('connectMetaMask');
-    if (connectBtn) {
-        connectBtn.addEventListener('click', () => {
-            modal.remove();
-            connectMetaMask();
-        });
-    }
-
-    const closeBtn = document.getElementById('closeModal');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            modal.remove();
-        });
-    }
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.remove();
-        }
-    });
+    // Show modal with animation
+    setTimeout(() => {
+        modal.style.display = 'flex';
+    }, 10);
 }
 
-// Initialize wallet buttons
-async function initWalletButtons() {
-    // CRITICAL: Wait for MetaMask injection on mobile
-    if (isMobileDevice() && !window.ethereum) {
-        console.log('Waiting for MetaMask injection...');
-        let attempts = 0;
-        while (!window.ethereum && attempts < 30) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            attempts++;
-        }
-        if (window.ethereum) {
-            console.log('MetaMask injected after', attempts * 100, 'ms');
-        } else {
-            console.warn('MetaMask not detected after 3 seconds');
-        }
-    }
-    
-    const connectBtn = document.getElementById('connectWalletBtn');
-    const disconnectBtn = document.getElementById('disconnectWalletBtn');
-
-    if (connectBtn) {
-        connectBtn.addEventListener('click', () => {
-            showConnectionUI();
-        });
-    }
-
-    if (disconnectBtn) {
-        disconnectBtn.addEventListener('click', () => {
-            disconnectWallet();
-        });
-    }
-
-    // Check connection on load
-    await checkWalletConnection();
-
-    // Listen for account and chain changes
-    if (window.ethereum) {
-        window.ethereum.removeAllListeners('accountsChanged');
-        window.ethereum.removeAllListeners('chainChanged');
-
-        window.ethereum.on('accountsChanged', (accounts) => {
-            if (localStorage.getItem('walletConnected')) {
-                if (accounts.length === 0) {
-                    disconnectWallet();
-                } else if (!isConnecting) {
-                    window.location.reload();
-                }
-            }
-        });
-
-        window.ethereum.on('chainChanged', () => {
-            if (localStorage.getItem('walletConnected') && !isConnecting) {
-                window.location.reload();
-            }
-        });
+/**
+ * Close wallet selection modal
+ */
+function closeWalletModal() {
+    const modal = document.getElementById('walletSelectionModal');
+    if (modal) {
+        modal.style.display = 'none';
     }
 }
 
-// Show notification
-function showNotification(message, type = 'success') {
-    const existingNotifications = document.querySelectorAll('.notification');
-    existingNotifications.forEach(n => n.remove());
-
+/**
+ * Show notification to user
+ */
+function showNotification(msg, type = 'success') {
+    console.log(`[${type.toUpperCase()}] ${msg}`);
+    
+    // Create notification element
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
-    notification.textContent = message;
-
+    notification.textContent = msg;
     document.body.appendChild(notification);
-
+    
+    // Remove after 3 seconds
     setTimeout(() => {
         notification.remove();
     }, 3000);
 }
 
-// Show loading modal
-function showLoading(message = 'Processing transaction...') {
+/**
+ * Show loading modal
+ */
+function showLoading(text = 'Processing...') {
     const modal = document.getElementById('loadingModal');
-    const text = document.getElementById('loadingText');
-
+    const loadingText = document.getElementById('loadingText');
     if (modal) {
-        if (text) text.textContent = message;
         modal.classList.add('show');
+        if (loadingText) loadingText.textContent = text;
     }
 }
 
-// Hide loading modal
+/**
+ * Hide loading modal
+ */
 function hideLoading() {
     const modal = document.getElementById('loadingModal');
-    if (modal) {
-        modal.classList.remove('show');
+    if (modal) modal.classList.remove('show');
+}
+
+/**
+ * Get MetaMask provider (handles multiple wallets)
+ */
+async function getMetaMaskProvider() {
+    if (!window.ethereum) return null;
+    
+    // If multiple wallets, find MetaMask
+    if (window.ethereum.providers) {
+        return window.ethereum.providers.find(p => p.isMetaMask) || null;
+    }
+    
+    // Single wallet
+    return window.ethereum.isMetaMask ? window.ethereum : null;
+}
+
+/**
+ * Update wallet UI across the site
+ */
+function updateWalletUI() {
+    const connectBtn = document.getElementById('connectWalletBtn');
+    const disconnectBtn = document.getElementById('disconnectWalletBtn');
+    const userAddressEl = document.getElementById('userAddress');
+    
+    console.log('🎨 Updating UI - userAddress:', userAddress);
+    console.log('🎨 localStorage walletConnected:', localStorage.getItem('walletConnected'));
+    
+    // Check if we're on index.html or app.html
+    const currentPath = window.location.pathname;
+    const isOnHomePage = currentPath.includes('index.html') || 
+                         currentPath === '/' || 
+                         currentPath.endsWith('/');
+    
+    if (isOnHomePage) {
+        // On home page: Show "Connect Wallet" button UNLESS user has an active session
+        const hasSession = localStorage.getItem('walletConnected') === 'true';
+        
+        if (connectBtn) {
+            connectBtn.style.display = 'inline-block';
+            connectBtn.textContent = 'Connect Wallet';
+            console.log('✅ Home page - Connect button shown');
+        }
+        if (disconnectBtn) {
+            disconnectBtn.style.display = 'none';
+            console.log('✅ Home page - Disconnect button hidden');
+        }
+    } else {
+        // On dashboard: Show address and disconnect button if connected
+        if (userAddress) {
+            // Hide connect, show disconnect
+            if (connectBtn) {
+                connectBtn.style.display = 'none';
+                console.log('✅ Dashboard - Connect button hidden');
+            }
+            if (disconnectBtn) {
+                disconnectBtn.style.display = 'inline-block';
+                console.log('✅ Dashboard - Disconnect button shown');
+            }
+            
+            // Display shortened address
+            if (userAddressEl) {
+                const shortened = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+                userAddressEl.textContent = shortened;
+                userAddressEl.title = userAddress;
+            }
+            
+            // Check if user is owner and show admin tab
+            checkAndShowAdminTab();
+        } else {
+            // Show connect, hide disconnect
+            if (connectBtn) {
+                connectBtn.style.display = 'inline-block';
+                console.log('✅ Dashboard - Connect button shown');
+            }
+            if (disconnectBtn) {
+                disconnectBtn.style.display = 'none';
+                console.log('✅ Dashboard - Disconnect button hidden');
+            }
+            if (userAddressEl) userAddressEl.textContent = '';
+        }
     }
 }
+
+/**
+ * Check if connected user is the contract owner
+ */
+async function checkAndShowAdminTab() {
+    if (!salvaContract || !userAddress) return;
+    
+    try {
+        const owner = await salvaContract.getOwner();
+        const adminTab = document.querySelector('[data-tab="admin"]');
+        
+        if (adminTab) {
+            if (userAddress.toLowerCase() === owner.toLowerCase()) {
+                adminTab.style.display = 'block';
+                console.log('✅ Admin access granted');
+            } else {
+                adminTab.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Error checking owner:', error);
+    }
+}
+
+/**
+ * Check if wallet is already connected (SILENT CHECK - NO REDIRECT)
+ */
+async function checkWalletConnection() {
+    const eth = await getMetaMaskProvider();
+    if (!eth) {
+        console.log('❌ MetaMask not found');
+        updateWalletUI();
+        return false;
+    }
+
+    try {
+        // Request accounts without prompting user
+        const accounts = await eth.request({ method: 'eth_accounts' });
+        
+        if (accounts.length > 0) {
+            // Set up provider and signer
+            provider = new ethers.providers.Web3Provider(eth);
+            signer = provider.getSigner();
+            userAddress = await signer.getAddress();
+            
+            // Verify we're on Sepolia
+            const network = await provider.getNetwork();
+            if (network.chainId !== CONFIG.CHAIN_ID) {
+                console.warn(`Wrong network. Expected ${CONFIG.CHAIN_ID}, got ${network.chainId}`);
+                // Don't clear state - just warn
+            }
+            
+            // Initialize contract
+            salvaContract = new ethers.Contract(CONFIG.SALVA_ADDRESS, CONFIG.SALVA_ABI, signer);
+            
+            console.log('✅ Wallet silently reconnected:', userAddress);
+            updateWalletUI();
+            
+            return true;
+        } else {
+            // No accounts - clear state and update UI
+            console.log('ℹ️ No accounts found');
+            provider = null;
+            signer = null;
+            userAddress = null;
+            salvaContract = null;
+            updateWalletUI();
+            return false;
+        }
+    } catch (error) {
+        console.error('Silent connection check failed:', error);
+        // Clear state on error
+        provider = null;
+        signer = null;
+        userAddress = null;
+        salvaContract = null;
+        updateWalletUI();
+        return false;
+    }
+}
+
+/**
+ * Connect to MetaMask (prompts user)
+ */
+async function connectMetaMask() {
+    // Close wallet modal if open
+    closeWalletModal();
+    
+    if (isConnecting) {
+        console.log('⏳ Connection already in progress');
+        return false;
+    }
+    
+    const eth = await getMetaMaskProvider();
+    
+    if (!eth) {
+        alert('MetaMask is not installed!\n\nPlease install MetaMask browser extension to use this app.');
+        window.open('https://metamask.io/download/', '_blank');
+        return false;
+    }
+
+    try {
+        isConnecting = true;
+        showLoading('Connecting to MetaMask...');
+        
+        // Request account access
+        const accounts = await eth.request({ method: 'eth_requestAccounts' });
+        
+        if (accounts.length === 0) {
+            throw new Error('No accounts found');
+        }
+        
+        // Set up provider
+        provider = new ethers.providers.Web3Provider(eth);
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+        
+        console.log('✅ User address obtained:', userAddress);
+        
+        // Check network
+        const network = await provider.getNetwork();
+        console.log('🌐 Network:', network.chainId);
+        
+        if (network.chainId !== CONFIG.CHAIN_ID) {
+            hideLoading();
+            showNotification(`Please switch to ${CONFIG.CHAIN_NAME} in MetaMask`, 'error');
+            
+            // Try to switch network
+            try {
+                await eth.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: `0x${CONFIG.CHAIN_ID.toString(16)}` }],
+                });
+                // After network switch, reconnect
+                console.log('🔄 Network switched, reconnecting...');
+                isConnecting = false;
+                return await connectMetaMask();
+            } catch (switchError) {
+                console.error('Failed to switch network:', switchError);
+                isConnecting = false;
+                return false;
+            }
+        }
+        
+        // Initialize contract
+        salvaContract = new ethers.Contract(CONFIG.SALVA_ADDRESS, CONFIG.SALVA_ABI, signer);
+        
+        // Store connection state
+        localStorage.setItem('walletConnected', 'true');
+        localStorage.setItem('lastConnectedAddress', userAddress);
+        
+        console.log('✅ Connected successfully:', userAddress);
+        console.log('✅ Contract initialized:', salvaContract.address);
+        
+        hideLoading();
+        updateWalletUI();
+        
+        showNotification('Wallet connected! Redirecting to dashboard...', 'success');
+        
+        console.log('🚀 Redirecting to app.html in 500ms...');
+        
+        // IMMEDIATE redirect to dashboard after successful connection
+        setTimeout(() => {
+            console.log('🚀 NOW redirecting to app.html');
+            window.location.href = 'app.html';
+        }, 500);
+        
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Connection error:', error);
+        hideLoading();
+        
+        if (error.code === 4001) {
+            showNotification('Connection rejected by user', 'error');
+        } else if (error.code === -32002) {
+            showNotification('Connection request already pending. Please check MetaMask.', 'warning');
+        } else {
+            showNotification('Failed to connect wallet: ' + error.message, 'error');
+        }
+        
+        isConnecting = false;
+        return false;
+    } finally {
+        // Don't reset isConnecting here if we're about to redirect
+        if (!userAddress) {
+            isConnecting = false;
+        }
+    }
+}
+
+/**
+ * Disconnect wallet
+ */
+function disconnectWallet() {
+    console.log('👋 Disconnecting wallet...');
+    
+    // Clear all global state
+    provider = null;
+    signer = null;
+    userAddress = null;
+    salvaContract = null;
+    
+    // Clear all localStorage
+    localStorage.clear(); // Clear everything to be safe
+    
+    // Also try to clear session storage
+    sessionStorage.clear();
+    
+    console.log('✅ State cleared');
+    
+    showNotification('Wallet disconnected', 'success');
+    
+    // Small delay then redirect and force reload
+    setTimeout(() => {
+        window.location.href = 'index.html';
+        // Force a hard reload to clear any cached state
+        setTimeout(() => {
+            window.location.reload(true);
+        }, 100);
+    }, 300);
+}
+
+/**
+ * Initialize wallet buttons
+ */
+function initWalletButtons() {
+    const connectBtn = document.getElementById('connectWalletBtn');
+    const disconnectBtn = document.getElementById('disconnectWalletBtn');
+    
+    if (connectBtn) {
+        // Remove old listeners by cloning
+        const newConnectBtn = connectBtn.cloneNode(true);
+        connectBtn.parentNode.replaceChild(newConnectBtn, connectBtn);
+        
+        // Add fresh listener - shows wallet selection modal or redirects
+        newConnectBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            console.log('🔌 Connect button clicked');
+            
+            // Check if we're already connected
+            if (userAddress && salvaContract) {
+                console.log('✅ Already connected, redirecting to dashboard');
+                window.location.href = 'app.html';
+            } else {
+                // Not connected, show wallet modal
+                console.log('❌ Not connected, showing wallet modal');
+                showWalletModal();
+            }
+        });
+    }
+    
+    if (disconnectBtn) {
+        const newDisconnectBtn = disconnectBtn.cloneNode(true);
+        disconnectBtn.parentNode.replaceChild(newDisconnectBtn, disconnectBtn);
+        
+        newDisconnectBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('🔌 Disconnect button clicked');
+            disconnectWallet();
+        });
+    }
+}
+
+/**
+ * Setup MetaMask event listeners
+ */
+function setupMetaMaskListeners() {
+    const eth = window.ethereum;
+    if (!eth) return;
+    
+    // Account changed
+    eth.on('accountsChanged', async (accounts) => {
+        console.log('👤 Account changed:', accounts);
+        
+        if (accounts.length === 0) {
+            // User disconnected
+            disconnectWallet();
+        } else {
+            // User switched account - reload to update
+            localStorage.setItem('walletConnected', 'true');
+            window.location.reload();
+        }
+    });
+    
+    // Chain changed
+    eth.on('chainChanged', (chainId) => {
+        console.log('⛓️ Chain changed:', chainId);
+        // Reload page on chain change
+        window.location.reload();
+    });
+}
+
+// Export functions to window scope
+window.showNotification = showNotification;
+window.showLoading = showLoading;
+window.hideLoading = hideLoading;
+window.checkWalletConnection = checkWalletConnection;
+window.connectMetaMask = connectMetaMask;
+window.disconnectWallet = disconnectWallet;
+window.initWalletButtons = initWalletButtons;
+window.setupMetaMaskListeners = setupMetaMaskListeners;
+window.updateWalletUI = updateWalletUI;
+window.showWalletModal = showWalletModal;
+window.closeWalletModal = closeWalletModal;

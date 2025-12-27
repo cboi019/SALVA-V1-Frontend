@@ -1,25 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SALVA - Decentralized Savings</title>
-    
-    <!-- Styles -->
+
     <link rel="stylesheet" href="css/main.css">
     <link rel="stylesheet" href="css/components.css">
 </head>
+
 <body>
-    <!-- Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">SALVA</div>
+        <nav class="sidebar-nav">
+            <a href="index.html">🏠 Home</a>
+            <a href="app.html" id="dashboardGatekeeper">📊 Dashboard</a>
+            <a href="stats.html">📈 Protocol Stats</a>
+            <div class="nav-divider"></div>
+            <a href="userDocs.html">📖 Documentation</a>
+            <div class="nav-divider"></div>
+            <a href="support.html">📩 Support</a>
+        </nav>
+    </aside>
+
+    <div class="overlay" id="overlay"></div>
+
     <nav class="navbar">
-        <div class="container">
-            <div class="logo">SALVA</div>
-            <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
-            <button id="disconnectWalletBtn" class="btn btn-secondary" style="display: none;">Disconnect</button>
+        <div class="container nav-wrapper">
+            <div class="nav-left">
+                <div class="hamburger" id="hamburger">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+                <div class="logo">SALVA</div>
+            </div>
+
+            <div class="nav-right">
+                <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
+                <button id="disconnectWalletBtn" class="btn btn-secondary" style="display: none;">Disconnect</button>
+            </div>
         </div>
     </nav>
 
-    <!-- Hero Section -->
     <section class="hero">
         <div class="container">
             <h1 class="hero-title">Commit to Your Financial Goals</h1>
@@ -27,18 +51,18 @@
                 SALVA is a decentralized, non-custodial smart contract that helps you save towards your goals.
                 Lock your tokens until you reach your target or a specific date.
             </p>
-            
+
             <div class="features">
                 <div class="feature-card">
                     <h3>🔒 Time-Based Savings</h3>
                     <p>Lock your tokens until a specific date. Perfect for long-term goals.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <h3>🎯 Goal-Based Savings</h3>
                     <p>Save towards a target amount. Unlock when you reach your goal.</p>
                 </div>
-                
+
                 <div class="feature-card">
                     <h3>🔐 Non-Custodial</h3>
                     <p>You maintain full control. Your keys, your crypto, your future.</p>
@@ -47,7 +71,6 @@
         </div>
     </section>
 
-    <!-- About Section -->
     <section class="about">
         <div class="container">
             <h2>How It Works</h2>
@@ -57,19 +80,16 @@
                     <h3>Create a Plan</h3>
                     <p>Choose between time-based or goal-based savings commitment.</p>
                 </div>
-                
                 <div class="step">
                     <span class="step-number">2</span>
                     <h3>Fund Your Goal</h3>
                     <p>Deposit whitelisted ERC20 tokens into your savings plan.</p>
                 </div>
-                
                 <div class="step">
                     <span class="step-number">3</span>
                     <h3>Stay Committed</h3>
                     <p>Your funds are locked until you reach your goal or maturity date.</p>
                 </div>
-                
                 <div class="step">
                     <span class="step-number">4</span>
                     <h3>Withdraw & Celebrate</h3>
@@ -79,7 +99,6 @@
         </div>
     </section>
 
-    <!-- Footer -->
     <footer class="footer">
         <div class="container">
             <p class="footer-title">Built by Charlie</p>
@@ -92,17 +111,61 @@
         </div>
     </footer>
 
-    <!-- Scripts -->
+    <div id="loadingModal" class="modal">
+        <div class="modal-content">
+            <div class="loader"></div>
+            <p id="loadingText">Processing...</p>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
     <script src="js/config.js"></script>
     <script src="js/wallet.js"></script>
-    <script src="js/walletconnect.js"></script>
+
     <script>
-        // Initialize wallet connection on home page
-        document.addEventListener('DOMContentLoaded', () => {
-            initWalletButtons();
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🏠 Home page loaded');
+
+            if (typeof setupMetaMaskListeners === 'function') {
+                setupMetaMaskListeners();
+            }
+
+            if (typeof initWalletButtons === 'function') {
+                initWalletButtons();
+            }
+
+            const connected = await checkWalletConnection();
+
+            if (typeof updateWalletUI === 'function') {
+                updateWalletUI();
+            }
+
+            const hamburger = document.getElementById('hamburger');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+
+            function toggleMenu() {
+                hamburger.classList.toggle('active');
+                sidebar.classList.toggle('active');
+                overlay.classList.toggle('active');
+            }
+
+            if (hamburger) hamburger.addEventListener('click', toggleMenu);
+            if (overlay) overlay.addEventListener('click', toggleMenu);
+
+            const gatekeeper = document.getElementById('dashboardGatekeeper');
+            if (gatekeeper) {
+                gatekeeper.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    if (userAddress && salvaContract) {
+                        window.location.href = 'app.html';
+                    } else {
+                        showWalletModal();
+                    }
+                });
+            }
         });
     </script>
 </body>
+
 </html>
